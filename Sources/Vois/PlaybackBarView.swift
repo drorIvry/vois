@@ -29,12 +29,19 @@ struct PlaybackBarView: View {
     private var compact: some View {
         HStack(spacing: 8) {
             statusIcon
-            if controller.player.sentenceCount > 0 {
+            if case .error(let message) = controller.phase {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            } else if controller.player.sentenceCount > 0 {
                 Text("\(min(controller.player.currentSentence + 1, controller.player.sentenceCount))/\(controller.player.sentenceCount)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
         }
+        .padding(.horizontal, 12)
     }
 
     private var expanded: some View {

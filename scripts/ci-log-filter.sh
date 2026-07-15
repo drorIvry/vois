@@ -13,7 +13,8 @@ exec awk '
 /^ *\^ *$/ {next}
 /IDERunDestination/ {next}
 /Using the first of multiple matching destinations/ {next}
-/^\{ platform:macOS/ {next}
+/^[[:space:]]*\{ platform:/ {next}
+/Found unhandled resource at .*checkouts/ {next}
 /CoreSimulator is out of date|iOSSimulator:|DVTErrorPresenter|Domain: DVTCoreSimulatorAdditions/ {next}
 {print}
 '

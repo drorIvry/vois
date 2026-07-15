@@ -71,6 +71,7 @@ final class SpeechController: ObservableObject {
             do {
                 text = try await self.capture()
             } catch {
+                NSLog("Vois capture error: %@", String(describing: error))
                 self.fail("Couldn't grab selection — try Cmd+C first")
                 return
             }
@@ -133,6 +134,7 @@ final class SpeechController: ObservableObject {
     }
 
     private func fail(_ message: String) {
+        NSLog("Vois error: %@", message)
         phase = .error(message)
         player.stop()
         bar.show(controller: self)
