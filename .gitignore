@@ -4,3 +4,5 @@
 DerivedData/
 dist/
 Models/
+.claude/
+default.profraw
