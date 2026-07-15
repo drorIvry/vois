@@ -54,7 +54,16 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 PLIST
 plutil -lint "$APP/Contents/Info.plist"
 
-# Ad-hoc signing (replace with Developer ID + notarization for distribution).
-find "$APP/Contents/Frameworks" -name "*.framework" -maxdepth 1 -exec codesign --force --sign - {} \;
-codesign --force --sign - "$APP"
-echo "Built $APP"
+# Sign with Developer ID when available (stable identity → Accessibility TCC
+# grant survives rebuilds; ad-hoc cdhash changes every build and drops it).
+# Override with CODESIGN_ID=- for ad-hoc, or CODESIGN_ID="<identity>".
+SIGN_ID="${CODESIGN_ID:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Developer ID Application/{print $2; exit}')}"
+[ -n "$SIGN_ID" ] || SIGN_ID="-"
+SIGN_FLAGS=(--force --sign "$SIGN_ID")
+[ "$SIGN_ID" != "-" ] && SIGN_FLAGS+=(--options runtime)
+# Add NOTARIZE=1 for a distribution build: secure timestamps (slow, network).
+[ "${NOTARIZE:-}" = "1" ] && SIGN_FLAGS+=(--timestamp)
+find "$APP/Contents/Frameworks" -name "*.framework" -maxdepth 1 -exec codesign "${SIGN_FLAGS[@]}" {} \;
+codesign "${SIGN_FLAGS[@]}" "$APP"
+echo "Built $APP (signed: $SIGN_ID)"
+# For distribution: notarize + staple (xcrun notarytool submit / xcrun stapler).
