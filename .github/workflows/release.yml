@@ -51,15 +51,17 @@ jobs:
       - name: Smoke test (TTFA spike)
         run: dist/Vois.app/Contents/MacOS/Vois --spike
 
-      - name: Zip app
-        run: ditto -c -k --keepParent dist/Vois.app dist/Vois-${{ github.ref_name }}.zip
+      - name: Make DMG
+        run: scripts/make-dmg.sh dist/Vois-${{ github.ref_name }}-ci.dmg
 
-      - name: Create GitHub release
+      # Updates the release for this tag if one already exists (e.g. a locally
+      # signed release), otherwise creates it. The -ci suffix keeps this
+      # ad-hoc-signed artifact from clobbering a signed one.
+      - name: Create/update GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Vois-${{ github.ref_name }}.zip
+          files: dist/Vois-${{ github.ref_name }}-ci.dmg
           generate_release_notes: true
-          draft: true
           body: |
-            > ⚠️ CI artifacts are ad-hoc signed: right-click → Open on first
-            > launch, or build from source. Notarized builds coming.
+            > ⚠️ The `-ci` DMG is ad-hoc signed: right-click → Open on first
+            > launch, or build from source. Prefer the signed DMG when present.
