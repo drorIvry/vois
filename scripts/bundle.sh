@@ -26,6 +26,8 @@ install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/Mac
 # SPM resource bundles (KokoroSwift config.json, MLX metallib, etc.).
 find "$PRODUCTS" -maxdepth 1 -name "*.bundle" -exec cp -R {} "$APP/Contents/Resources/" \;
 
+cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+
 # Kokoro model + voices (PRD: bundled, zero network at runtime).
 # The .f32 original stays out — only the bf16 weights ship.
 mkdir -p "$APP/Contents/Resources/Kokoro"
@@ -38,6 +40,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key><string>Vois</string>
+	<key>CFBundleIconFile</key><string>AppIcon</string>
 	<key>CFBundleIdentifier</key><string>app.vois.Vois</string>
 	<key>CFBundleName</key><string>Vois</string>
 	<key>CFBundlePackageType</key><string>APPL</string>

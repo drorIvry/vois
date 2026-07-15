@@ -6,6 +6,11 @@ struct PlaybackBarView: View {
     @ObservedObject var settings = AppSettings.shared
     @State private var hovering = false
 
+    /// Fixed footprint: hover swaps content only. Resizing the window on hover
+    /// causes a constraint-update feedback loop (cursor crosses the new edge →
+    /// un-hover → shrink → hover…) that AppKit escalates to NSGenericException.
+    static let size = CGSize(width: 300, height: 38)
+
     var body: some View {
         Group {
             if hovering {
@@ -14,13 +19,11 @@ struct PlaybackBarView: View {
                 compact
             }
         }
-        .padding(.horizontal, hovering ? 12 : 16)
-        .padding(.vertical, 8)
+        .frame(width: Self.size.width, height: Self.size.height)
         .background(.regularMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(.quaternary))
         .onHover { hovering = $0 }
         .animation(.easeInOut(duration: 0.15), value: hovering)
-        .fixedSize()
     }
 
     private var compact: some View {

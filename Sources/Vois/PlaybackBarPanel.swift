@@ -17,10 +17,12 @@ final class PlaybackBarPanel {
         }
         let view = PlaybackBarView(controller: controller)
         let hosting = NSHostingView(rootView: view)
-        hosting.frame.size = hosting.fittingSize
+        // Fixed-size panel; never let SwiftUI drive window size (see PlaybackBarView.size).
+        hosting.sizingOptions = []
+        hosting.frame.size = PlaybackBarView.size
 
         let panel = NSPanel(
-            contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
+            contentRect: NSRect(origin: .zero, size: PlaybackBarView.size),
             styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
             backing: .buffered,
             defer: false
