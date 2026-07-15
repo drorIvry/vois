@@ -22,7 +22,8 @@ cp assets/dmg-background.png "$STAGE/.background/background.png"
 hdiutil create -volname "$VOL" -srcfolder "$STAGE" -ov -format UDRW "$RW" -quiet
 MOUNT=$(hdiutil attach "$RW" -readwrite -noautoopen | awk -F'\t' '/\/Volumes\//{print $3; exit}')
 
-osascript <<EOF
+# Best-effort: headless CI Finder scripting can flake; ship unstyled rather than fail.
+osascript <<EOF || echo "warning: Finder styling failed, DMG will use default layout" >&2
 tell application "Finder"
     tell disk "$VOL"
         open
