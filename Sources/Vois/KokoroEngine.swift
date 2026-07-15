@@ -70,19 +70,26 @@ actor KokoroEngine: TTSEngine {
     }
 
     private static func modelDirectory() throws -> URL {
-        // Bundled (Vois.app/Contents/Resources/Kokoro) — the shipping path.
-        if let bundled = Bundle.main.resourceURL?.appendingPathComponent("Kokoro"),
-           FileManager.default.fileExists(atPath: bundled.appendingPathComponent("kokoro-v1_0.safetensors").path) {
-            return bundled
+        var candidates: [URL] = []
+        // Executable-relative (Vois.app/Contents/Resources/Kokoro) — robust even
+        // when Bundle.main returns a cwd-relative URL (relative argv[0] launch;
+        // MLX then resolves it against its own cwd and fails to open).
+        let exe = URL(fileURLWithPath: CommandLine.arguments[0]).resolvingSymlinksInPath()
+        candidates.append(exe.deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Resources/Kokoro", isDirectory: true))
+        // Bundle lookup — the normal shipping path when launched via LaunchServices.
+        if let bundled = Bundle.main.resourceURL?.absoluteURL.appendingPathComponent("Kokoro", isDirectory: true) {
+            candidates.append(bundled)
         }
-        // Dev fallback: repo checkout (works regardless of cwd, e.g. under xcodebuild test).
+        // Dev fallbacks: cwd and repo checkout (e.g. under xcodebuild test).
         let repoRoot = URL(fileURLWithPath: #filePath)  // Sources/Vois/KokoroEngine.swift
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        for dev in [URL(fileURLWithPath: "Models/Kokoro", isDirectory: true),
-                    repoRoot.appendingPathComponent("Models/Kokoro", isDirectory: true)] {
-            if FileManager.default.fileExists(atPath: dev.appendingPathComponent("kokoro-v1_0.safetensors").path) {
-                return dev
-            }
+        candidates.append(URL(fileURLWithPath: "Models/Kokoro", isDirectory: true))
+        candidates.append(repoRoot.appendingPathComponent("Models/Kokoro", isDirectory: true))
+
+        for dir in candidates
+        where FileManager.default.fileExists(atPath: dir.appendingPathComponent("kokoro-v1_0.safetensors").path) {
+            return dir
         }
         throw VoisError.modelMissing
     }
