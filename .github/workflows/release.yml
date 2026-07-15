@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          xcodebuild -version
+
+      - name: Download Metal Toolchain (Xcode 26+)
+        run: xcodebuild -downloadComponent MetalToolchain || true
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            .build/xcode/SourcePackages
+            ~/Library/Caches/org.swift.swiftpm
+          key: spm-${{ runner.os }}-${{ hashFiles('Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      - name: Cache Kokoro model
+        uses: actions/cache@v4
+        with:
+          path: Models/Kokoro
+          key: kokoro-model-v1
+
+      - name: Install mlx (for bf16 weight conversion)
+        run: pip3 install --break-system-packages mlx || pip3 install mlx
+
+      - name: Fetch model
+        run: scripts/fetch-model.sh
+
+      - name: Build app bundle
+        env:
+          CODESIGN_ID: "-"  # ad-hoc in CI; sign + notarize locally for trusted releases
+        run: scripts/bundle.sh Release
+
+      - name: Smoke test (TTFA spike)
+        run: dist/Vois.app/Contents/MacOS/Vois --spike
+
+      - name: Zip app
+        run: ditto -c -k --keepParent dist/Vois.app dist/Vois-${{ github.ref_name }}.zip
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Vois-${{ github.ref_name }}.zip
+          generate_release_notes: true
+          draft: true
+          body: |
+            > ⚠️ CI artifacts are ad-hoc signed: right-click → Open on first
+            > launch, or build from source. Notarized builds coming.

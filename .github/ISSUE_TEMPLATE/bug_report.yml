@@ -1,0 +1,36 @@
+name: Bug report
+description: Something broke
+labels: [bug]
+body:
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "15.5"
+    validations:
+      required: true
+  - type: input
+    id: app
+    attributes:
+      label: App you selected text in (for capture issues)
+      placeholder: "Safari 18 / Slack / VS Code…"
+  - type: dropdown
+    id: permission
+    attributes:
+      label: Accessibility permission granted?
+      options: ["Yes", "No", "Not sure"]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead. Error text from the playback bar helps.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / crash report
+      description: "`log show --last 5m --predicate \"process == 'Vois'\"` output, or a crash report from ~/Library/Logs/DiagnosticReports."
+      render: shell

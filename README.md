@@ -1,77 +1,134 @@
-# Vois
+# Vois 🎙️
 
-Local-first select-to-speak for macOS. Select text in any app, press a global shortcut, and a fully offline Kokoro voice reads it aloud. No network, no accounts, no telemetry.
+> Select text anywhere. Press a key. Listen.
 
-- **Requires:** macOS 15+, Apple Silicon, Xcode 26 (with Metal Toolchain: `xcodebuild -downloadComponent MetalToolchain`).
-- **Engine:** Kokoro-82M via MLX Swift ([kokoro-ios](https://github.com/mlalma/kokoro-ios), MIT) with [MisakiSwift](https://github.com/mlalma/MisakiSwift) phonemization (Apache-2.0 — no GPL espeak-ng anywhere in the tree).
-- **Default shortcut:** ⌥S speaks the selection / stops or replaces during playback (rebindable). Esc also stops.
+[![CI](https://github.com/drorIvry/vois/actions/workflows/ci.yml/badge.svg)](https://github.com/drorIvry/vois/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/drorIvry/vois?include_prereleases)](https://github.com/drorIvry/vois/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-macOS%2015%2B%20(Apple%20Silicon)-blue)](#requirements)
+[![Swift](https://img.shields.io/badge/Swift-6.2-orange)](Package.swift)
 
-## Build
+**Vois** is a local-first select-to-speak utility for macOS. Select text in
+*any* app, press a global shortcut, and a natural offline voice
+([Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) running on
+[MLX](https://github.com/ml-explore/mlx-swift)) reads it aloud.
+
+**No network. No accounts. No telemetry.** Everything happens on your Mac.
+
+## Features
+
+- 🎯 **Works everywhere** — tiered capture cascade (Accessibility API → menu
+  Copy → simulated ⌘C with clipboard restore) covers native apps, browsers,
+  and Electron apps
+- ⚡ **Fast** — first audio in ~0.1s with a warm model (measured p50)
+- 🔒 **Fully offline** — bundled model, zero network access at runtime
+- 🎛️ **Floating playback bar** — play/pause, ±sentence skip, 0.5×–3×
+  pitch-preserving speed, draggable, never steals focus
+- 🗣️ **11 English voices** (US + UK), preview in Settings
+- ⌨️ **Rebindable shortcuts** — toggle to speak/stop, Esc stops
+- 🧹 **Smart preprocessing** — strips URLs/markdown noise, sentence-streamed
+  synthesis starts playback while the rest is still generating
+
+## Install
+
+**Download:** grab `Vois-*.zip` from [Releases](https://github.com/drorIvry/vois/releases),
+unzip, move to Applications. CI builds are ad-hoc signed — right-click → Open
+on first launch.
+
+**Build from source:**
 
 ```bash
-# 1. Fetch model weights + voices into Models/Kokoro (one-time, ~350MB download,
-#    converted to bf16 → 164MB bundled). Build-time only; the app never touches the network.
-scripts/fetch-model.sh
-
-# 2. Build and bundle Vois.app (uses xcodebuild — plain `swift build` cannot
-#    compile MLX's Metal shaders)
+git clone https://github.com/drorIvry/vois.git && cd vois
+xcodebuild -downloadComponent MetalToolchain   # one-time
+scripts/fetch-model.sh                         # ~340MB download → 164MB bf16
 scripts/bundle.sh Release
-
-# 3. Run
 open dist/Vois.app
 ```
 
-First launch walks through onboarding: grant Accessibility permission (needed to read your selection), pick a shortcut, try the demo. For distribution, replace the ad-hoc codesign in `scripts/bundle.sh` with your Developer ID and notarize.
+> `swift build` alone can't compile MLX's Metal shaders — `scripts/bundle.sh`
+> drives `xcodebuild` and assembles the bundle (frameworks, resources, model).
+
+First launch: onboarding walks you through the Accessibility permission
+(required to read your selection), shortcut setup, and a demo.
+
+### Requirements
+
+macOS 15+, Apple Silicon. Building needs Xcode 26+.
+
+## Usage
+
+| Action | How |
+|---|---|
+| Speak selection | ⌥S (default; rebindable) |
+| Stop | ⌥S again, or Esc |
+| Replace with new selection | select new text, ⌥S while playing |
+| Pause/resume, skip, speed | hover the floating bar |
+| Voice / speed / behavior | menu-bar icon → Settings |
 
 ### Debug flags
 
 ```bash
-dist/Vois.app/Contents/MacOS/Vois --spike        # measure time-to-first-audio, exit
-dist/Vois.app/Contents/MacOS/Vois --say "text"   # exercise synth → bar → playback without capture
+dist/Vois.app/Contents/MacOS/Vois --spike        # TTFA benchmark, then exits
+dist/Vois.app/Contents/MacOS/Vois --say "text"   # speak without capture
 ```
 
-### Measured on M-series (Release, bf16 weights)
+## Performance (measured, M-series)
 
-| Metric | PRD target | Measured |
+| Metric | Target | Measured |
 |---|---|---|
-| Warm TTFA p50 | < 1s | **0.12s** |
-| Cold TTFA (load + first synth) | — | 0.4–1.3s (hidden by launch warm-up) |
-| Idle RSS, warm model | < 400MB | **~355MB** |
+| Warm time-to-first-audio p50 | < 1s | **0.12s** |
+| Idle RAM (model resident) | < 400MB | ~355MB |
 | Idle CPU | ~0% | 0.0% |
 
-`swift test` runs the text-preprocessor unit tests (the TTS path needs the app bundle, hence `--spike`).
+## Architecture
+
+Global hotkey ([KeyboardShortcuts](https://github.com/sindresorhus/KeyboardShortcuts))
+→ capture ([SelectedTextKit](https://github.com/tisfeng/SelectedTextKit))
+→ preprocess (sentence split, noise strip)
+→ synthesize ([kokoro-ios](https://github.com/mlalma/kokoro-ios) +
+[MisakiSwift](https://github.com/mlalma/MisakiSwift) G2P, actor-isolated,
+model stays warm)
+→ stream into AVAudioEngine (time-pitch rate control)
+→ non-activating NSPanel progress pill.
+
+Licensing note: the whole chain is MIT/Apache-2.0 — **no GPL** (espeak-ng is
+deliberately not used).
 
 ## Manual test checklist
 
-Capture-fallback matrix — select a paragraph, press ⌥S, expect speech in ~1s:
+<details>
+<summary>Capture matrix + core behaviors (expand)</summary>
 
-| App | Capture path exercised | Pass |
+Capture — select a paragraph, press the shortcut, expect speech in ~1s:
+
+| App | Capture path | Pass |
 |---|---|---|
-| Safari (web page) | AX API | ☐ |
+| Safari | AX API | ☐ |
 | Notes | AX API | ☐ |
-| Slack (Electron) | menu-Copy / Cmd+C fallback | ☐ |
-| VS Code (Electron) | menu-Copy / Cmd+C fallback | ☐ |
-| Terminal | AX / Cmd+C | ☐ |
-| Preview (PDF) | Cmd+C fallback | ☐ |
+| Slack (Electron) | menu-Copy / ⌘C fallback | ☐ |
+| VS Code (Electron) | menu-Copy / ⌘C fallback | ☐ |
+| Terminal | AX / ⌘C | ☐ |
+| Preview (PDF) | ⌘C fallback | ☐ |
 
-Core behaviors:
+Core:
 
-- ☐ No selection + shortcut → "No text selected" error pill, fades out.
-- ☐ Playback bar appears docked bottom-center; drag it; quit + relaunch → position remembered.
-- ☐ Hover bar → expands: play/pause, ±sentence skip, speed menu, progress, close all work.
-- ☐ Speed change mid-playback keeps pitch.
-- ☐ Esc stops playback. ⌥S with the same selection stops; with a new selection replaces playback.
-- ☐ "New selection replaces playback" off (Settings → Playback) → ⌥S during playback always stops.
-- ☐ Bar fades ~2s after playback ends (unless auto-hide disabled).
-- ☐ Clipboard contents intact after capturing from an Electron app (Cmd+C fallback path).
-- ☐ Menu bar: pause/resume, stop, voice picker, speed, Settings, Quit.
-- ☐ Settings → Voice → Preview speaks with the selected voice.
-- ☐ Onboarding completes < 3 min on a fresh machine; "Open System Settings" lands on Privacy & Security → Accessibility; status flips live when granted.
-- ☐ Activity Monitor: ~0% CPU idle; < 400MB RAM with warm model.
-- ☐ No network connections at any point (Little Snitch / `nettop -p Vois`).
+- ☐ No selection + shortcut → "No text selected" pill, fades out
+- ☐ Bar drag position survives relaunch
+- ☐ Hover bar → controls work (pause, ±sentence, speed, close)
+- ☐ Speed change mid-playback keeps pitch
+- ☐ Esc stops; same-selection re-press stops; new selection replaces
+- ☐ Clipboard intact after Electron-app capture
+- ☐ Onboarding < 3 min, permission remediation works
+- ☐ ~0% CPU idle, < 400MB RAM warm, zero network connections
 
-## Notes
+</details>
 
-- Weights are cast to bf16 at fetch time (halves size and RSS; audio RMS verified sane by `--spike`).
-- The playback bar is a non-activating `NSPanel` — it never steals focus from the app you're reading.
-- Licensing: Kokoro-82M Apache-2.0 · kokoro-ios MIT · MisakiSwift Apache-2.0 · SelectedTextKit MIT · KeyboardShortcuts MIT · MLX Swift MIT. No espeak-ng (GPL) linked.
+## Contributing
+
+PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). This project follows the
+[Contributor Covenant](CODE_OF_CONDUCT.md). Security reports: [SECURITY.md](SECURITY.md).
+
+## License
+
+[MIT](LICENSE) © 2026 Dror Ivry. Kokoro-82M model weights are Apache-2.0
+(© hexgrad).
