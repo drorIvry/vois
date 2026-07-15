@@ -1,5 +1,6 @@
 import AppKit
 import KeyboardShortcuts
+import SelectedTextKit
 import SwiftUI
 
 extension KeyboardShortcuts.Name {
@@ -32,6 +33,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             runSpike()
             return
         }
+        // Debug: `Vois --capture-test` waits 4s (focus the target app + select
+        // text), then reports what each capture tier returns for it.
+        if CommandLine.arguments.contains("--capture-test") {
+            Task.detached {
+                try? await Task.sleep(for: .seconds(4))
+                for strategy in [TextStrategy.accessibility, .menuAction, .shortcut, .appleScript] {
+                    do {
+                        let text = try await SelectedTextManager.shared.getSelectedText(strategy: strategy)
+                        print("\(strategy.description): \(text.map { "\"\($0.prefix(80))\"" } ?? "nil")")
+                    } catch {
+                        print("\(strategy.description): ERROR \(error)")
+                    }
+                }
+                exit(0)
+            }
+            return
+        }
+
         // Debug: `Vois --say "text"` exercises the full loop minus capture.
         if let i = CommandLine.arguments.firstIndex(of: "--say"), i + 1 < CommandLine.arguments.count {
             controller.speak(text: CommandLine.arguments[i + 1])
