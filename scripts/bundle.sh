@@ -13,7 +13,7 @@ APP=dist/Vois.app
 [ -d Models/Kokoro/voices ] || { echo "error: Models/Kokoro missing — run scripts/fetch-model.sh first" >&2; exit 1; }
 
 xcodebuild build -scheme Vois -configuration "$CONFIG" \
-  -destination 'platform=macOS,arch=arm64' -derivedDataPath "$DERIVED" -quiet
+  -destination 'platform=macOS,arch=arm64,variant=macOS' -derivedDataPath "$DERIVED" -quiet
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"

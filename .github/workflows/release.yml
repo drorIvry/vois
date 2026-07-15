@@ -46,7 +46,9 @@ jobs:
       - name: Build app bundle
         env:
           CODESIGN_ID: "-"  # ad-hoc in CI; sign + notarize locally for trusted releases
-        run: scripts/bundle.sh Release
+        run: |
+          set -o pipefail
+          scripts/bundle.sh Release 2>&1 | scripts/ci-log-filter.sh
 
       - name: Smoke test (TTFA spike)
         run: dist/Vois.app/Contents/MacOS/Vois --spike

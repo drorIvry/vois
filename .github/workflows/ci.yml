@@ -37,15 +37,17 @@ jobs:
 
       - name: Build
         run: |
+          set -o pipefail
           xcodebuild build -scheme Vois -configuration Release \
-            -destination 'platform=macOS,arch=arm64' \
-            -derivedDataPath .build/xcode -quiet
+            -destination 'platform=macOS,arch=arm64,variant=macOS' \
+            -derivedDataPath .build/xcode -quiet 2>&1 | scripts/ci-log-filter.sh
 
       - name: Unit tests
         run: |
+          set -o pipefail
           xcodebuild test -scheme Vois \
-            -destination 'platform=macOS,arch=arm64' \
-            -derivedDataPath .build/xcode -quiet
+            -destination 'platform=macOS,arch=arm64,variant=macOS' \
+            -derivedDataPath .build/xcode -quiet 2>&1 | scripts/ci-log-filter.sh
 
       - name: Shellcheck scripts
         run: |
