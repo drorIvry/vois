@@ -1,3 +1,4 @@
+import ServiceManagement
 import SwiftUI
 
 @main
@@ -20,6 +21,7 @@ struct VoisApp: App {
 struct MenuContent: View {
     @ObservedObject var controller: SpeechController
     @ObservedObject var settings = AppSettings.shared
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
         Button(controller.player.state == .playing ? "Pause" : "Resume") {
@@ -45,6 +47,17 @@ struct MenuContent: View {
         }
 
         Divider()
+
+        Toggle("Start at Login", isOn: $launchAtLogin)
+            .onChange(of: launchAtLogin) { _, enable in
+                do {
+                    enable ? try SMAppService.mainApp.register()
+                           : try SMAppService.mainApp.unregister()
+                } catch {
+                    NSLog("Vois: launch-at-login change failed: %@", String(describing: error))
+                    launchAtLogin = SMAppService.mainApp.status == .enabled
+                }
+            }
 
         SettingsLink { Text("Settings…") }
             .keyboardShortcut(",")
