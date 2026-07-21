@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SelectedTextKit
 
@@ -10,7 +11,19 @@ import SelectedTextKit
 /// swallows per-tier errors and moves on.
 enum TextCapture {
     static func selectedText() async throws -> String? {
-        try await SelectedTextManager.shared.getSelectedText(
-            strategies: [.accessibility, .menuAction, .shortcut])
+        do {
+            if let text = try await SelectedTextManager.shared.getSelectedText(
+                strategies: [.accessibility, .menuAction, .shortcut]), !text.isEmpty {
+                return text
+            }
+        } catch let error as SelectedTextKitError {
+            if case .accessibilityPermissionDenied = error { throw error }
+        }
+        // Mouse-capturing TUIs (herdr, tmux, vim) hold their selection inside the
+        // terminal process where no AX/copy tier can see it. herdr copies on
+        // select, so the clipboard is the selection; fall back to it rather than
+        // failing. Cost: with nothing selected anywhere, this speaks the last
+        // clipboard instead of erroring.
+        return NSPasteboard.general.string(forType: .string)
     }
 }
